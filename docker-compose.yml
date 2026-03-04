@@ -9,8 +9,9 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - ./frontend/public:/usr/share/nginx/html/public
+      # Монтируем папки для разработки, чтобы изменения подхватывались без пересборки
       - ./frontend/src:/usr/share/nginx/html/src
+      - ./frontend/public:/usr/share/nginx/html/public
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
     restart: unless-stopped
     networks:

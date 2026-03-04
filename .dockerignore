@@ -7,3 +7,5 @@ npm-debug.log
 *.log
 docker-compose.yml
 .dockerignore
+.env
+.env.*
