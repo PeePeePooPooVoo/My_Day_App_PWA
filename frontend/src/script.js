@@ -1,3 +1,13 @@
+import { auth, db } from './firebase.js';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged 
+} from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+
+
 // ========== ДАННЫЕ ==========
 let profile = {
     name: 'Иван Петров',
@@ -330,3 +340,108 @@ if ('serviceWorker' in navigator) {
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
 todayDate.textContent = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
 loadData();
+
+
+
+// Элементы авторизации
+const loginScreen = document.getElementById('loginScreen');
+const loginEmail = document.getElementById('loginEmail');
+const loginPassword = document.getElementById('loginPassword');
+const loginBtn = document.getElementById('loginBtn');
+const registerBtn = document.getElementById('registerBtn');
+const authHint = document.getElementById('authHint');
+
+// Отслеживание состояния аутентификации
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    // Пользователь вошёл
+    console.log('Logged in:', user.email);
+    
+    // Загружаем данные пользователя из Firestore
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+    if (userDoc.exists()) {
+      // Загружаем сохранённые заметки и привычки
+      const userData = userDoc.data();
+      if (userData.notes) notes = userData.notes;
+      if (userData.habits) habits = userData.habits;
+      if (userData.profile) profile = userData.profile;
+      
+      renderNotes();
+      updateHabitsUI();
+      updateStats();
+    }
+    
+    // Переключаемся на экран профиля
+    loginScreen.classList.remove('active');
+    document.getElementById('profileScreen').classList.add('active');
+  } else {
+    // Пользователь вышел
+    console.log('Logged out');
+    loginScreen.classList.add('active');
+    // Скрываем остальные экраны
+    document.querySelectorAll('.screen').forEach(s => {
+      if (s.id !== 'loginScreen') s.classList.remove('active');
+    });
+  }
+});
+
+// Регистрация
+registerBtn.addEventListener('click', async () => {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(
+      auth, 
+      loginEmail.value, 
+      loginPassword.value
+    );
+    
+    // Создаём запись пользователя в Firestore
+    await setDoc(doc(db, "users", userCredential.user.uid), {
+      email: loginEmail.value,
+      profile: profile,
+      notes: notes,
+      habits: habits,
+      createdAt: new Date().toISOString()
+    });
+    
+    authHint.textContent = 'Регистрация успешна!';
+    authHint.className = 'hint show success';
+  } catch (error) {
+    authHint.textContent = error.message;
+    authHint.className = 'hint show error';
+  }
+});
+
+// Вход
+loginBtn.addEventListener('click', async () => {
+  try {
+    await signInWithEmailAndPassword(
+      auth, 
+      loginEmail.value, 
+      loginPassword.value
+    );
+    authHint.textContent = 'Вход выполнен!';
+    authHint.className = 'hint show success';
+  } catch (error) {
+    authHint.textContent = error.message;
+    authHint.className = 'hint show error';
+  }
+});
+
+// Выход (добавьте кнопку в профиль)
+// logoutBtn.addEventListener('click', () => signOut(auth));
+
+// Функция сохранения данных пользователя (вызывать при изменениях)
+async function saveUserData() {
+  const user = auth.currentUser;
+  if (user) {
+    await setDoc(doc(db, "users", user.uid), {
+      email: user.email,
+      profile: profile,
+      notes: notes,
+      habits: habits,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  }
+}
+
+// Вызывайте saveUserData() после каждого изменения данных
